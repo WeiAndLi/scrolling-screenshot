@@ -16,79 +16,58 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
-      - name: Show available Xcode versions
-        run: |
-          ls -d /Applications/Xcode*.app
-          echo "Default Xcode: $(xcodebuild -version | head -1)"
-
       - name: Generate Xcode project
         run: |
           xcodegen generate --spec project.yml
           # Force compatible format for Xcode 15.x
           sed -i '' 's/objectVersion = [0-9]*;/objectVersion = 60;/' ScrollingScreenshot.xcodeproj/project.pbxproj
           sed -i '' 's/compatibilityVersion = "[^"]*";/compatibilityVersion = "Xcode 15.0";/' ScrollingScreenshot.xcodeproj/project.pbxproj
-          echo "=== Patched project.pbxproj ==="
+          echo "Patched:"
           grep -E 'objectVersion|compatibilityVersion' ScrollingScreenshot.xcodeproj/project.pbxproj
 
-      - name: Show generated project info
-        run: |
-          echo "=== Generated project schemes ==="
-          xcodebuild -project ScrollingScreenshot.xcodeproj -list
-
-      - name: Build unsigned app
+      - name: Build app
         run: |
           set -e
           xcodebuild build \
             -project ScrollingScreenshot.xcodeproj \
             -scheme ScrollingScreenshot \
-            -destination "generic/platform=iOS" \
+            -sdk iphoneos \
             -configuration Release \
             -derivedDataPath build/DerivedData \
-            CODE_SIGN_IDENTITY="-" \
-            CODE_SIGNING_REQUIRED=YES \
-            CODE_SIGNING_ALLOWED=YES \
             ONLY_ACTIVE_ARCH=NO \
             2>&1 | tee build.log
-          echo "=== Build completed ==="
 
-      - name: Check build result
-        if: failure()
-        run: |
-          echo "=== Build failed. Last 100 lines of log: ==="
-          tail -100 build.log
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+          retention-days: 3
 
       - name: Create IPA
         run: |
-          APP_PATH=$(find build/DerivedData -name "*.app" -type d -path "*/Release-iphoneos/*" | head -1)
+          APP_PATH=$(find build/DerivedData -name "ScrollingScreenshot.app" -type d | head -1)
           if [ -z "$APP_PATH" ] || [ ! -d "$APP_PATH" ]; then
-            echo "ERROR: .app not found, searching everywhere..."
-            APP_PATH=$(find build/DerivedData -name "*.app" -type d | head -1)
-          fi
-          if [ -z "$APP_PATH" ] || [ ! -d "$APP_PATH" ]; then
-            echo "ERROR: no .app found anywhere"
-            find build/DerivedData -type d | head -50
+            echo "ERROR: .app not found"
+            find build/DerivedData -name "*.app" -type d 2>/dev/null || echo "(none)"
             exit 1
           fi
-          echo "Found app at: $APP_PATH"
-          echo "=== App contents ==="
-          ls -la "$APP_PATH/"
-          echo "=== Executable check ==="
-          EXEC_NAME=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$APP_PATH/Info.plist" 2>/dev/null || echo "unknown")
-          echo "CFBundleExecutable: $EXEC_NAME"
-          if [ -f "$APP_PATH/$EXEC_NAME" ]; then
-            echo "Executable exists: $(file "$APP_PATH/$EXEC_NAME")"
-          else
-            echo "WARNING: Executable file missing!"
-          fi
-          echo "=== Frameworks ==="
-          ls -la "$APP_PATH/Frameworks/" 2>/dev/null || echo "(none)"
-          mkdir -p Payload
-          cp -R "$APP_PATH" Payload/
-          zip -r ScrollingScreenshot.ipa Payload/
-          rm -rf Payload
-          echo "IPA created: $(ls -lh ScrollingScreenshot.ipa)"
+          echo "App: $APP_PATH"
 
-      - name: Upload IPA artifact
+          # Check executable
+          EXEC=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$APP_PATH/Info.plist" 2>/dev/null)
+          echo "Expected executable: $EXEC"
+          ls -lh "$APP_PATH/$EXEC" && file "$APP_PATH/$EXEC" || echo "MISSING!"
+
+          # Create IPA using ditto (preserves bundle structure)
+          mkdir -p Payload
+          cp -R "$APP_PATH" "Payload/ScrollingScreenshot.app"
+          ditto -c -k --keepParent Payload ScrollingScreenshot.ipa
+          rm -rf Payload
+          echo "IPA: $(ls -lh ScrollingScreenshot.ipa)"
+
+      - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: ScrollingScreenshot.ipa
