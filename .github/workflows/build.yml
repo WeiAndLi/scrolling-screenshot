@@ -33,9 +33,13 @@ jobs:
             -scheme ScrollingScreenshot \
             -sdk iphoneos \
             -configuration Release \
-            -derivedDataPath build/DerivedData \
+            CONFIGURATION_BUILD_DIR=build/Products \
             ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGNING_REQUIRED=NO \
             2>&1 | tee build.log
+          echo "=== Build products ==="
+          ls -la build/Products/
+          ls -la build/Products/ScrollingScreenshot.app/ 2>/dev/null || echo "App bundle not found"
 
       - name: Upload build log
         if: always()
@@ -47,10 +51,10 @@ jobs:
 
       - name: Create IPA
         run: |
-          APP_PATH=$(find build/DerivedData -name "ScrollingScreenshot.app" -type d | head -1)
-          if [ -z "$APP_PATH" ] || [ ! -d "$APP_PATH" ]; then
-            echo "ERROR: .app not found"
-            find build/DerivedData -name "*.app" -type d 2>/dev/null || echo "(none)"
+          APP_PATH="build/Products/ScrollingScreenshot.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "ERROR: .app not found at $APP_PATH"
+            find build -name "*.app" -type d 2>/dev/null || echo "(no .app found anywhere)"
             exit 1
           fi
           echo "App: $APP_PATH"
@@ -60,7 +64,7 @@ jobs:
           echo "Expected executable: $EXEC"
           ls -lh "$APP_PATH/$EXEC" && file "$APP_PATH/$EXEC" || echo "MISSING!"
 
-          # Create IPA using ditto (preserves bundle structure)
+          # Create IPA using ditto
           mkdir -p Payload
           cp -R "$APP_PATH" "Payload/ScrollingScreenshot.app"
           ditto -c -k --keepParent Payload ScrollingScreenshot.ipa
