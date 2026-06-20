@@ -3,6 +3,8 @@ options:
   bundleIdPrefix: com.scrollshot
   deploymentTarget:
     iOS: "15.0"
+  xcodeVersion: "15.0"
+  generateEmptyDirectories: true
 
 settings:
   base:
@@ -21,8 +23,6 @@ targets:
         CODE_SIGN_STYLE: Manual
         CODE_SIGN_IDENTITY: ""
     dependencies: []
-    preBuildScripts: []
-    postBuildScripts: []
 
   ScrollingScreenshotTests:
     type: bundle.unit-test
