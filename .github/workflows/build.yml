@@ -19,11 +19,47 @@ jobs:
       - name: Generate Xcode project
         run: |
           xcodegen generate --spec project.yml
-          # Force compatible format for Xcode 15.x
           sed -i '' 's/objectVersion = [0-9]*;/objectVersion = 60;/' ScrollingScreenshot.xcodeproj/project.pbxproj
           sed -i '' 's/compatibilityVersion = "[^"]*";/compatibilityVersion = "Xcode 15.0";/' ScrollingScreenshot.xcodeproj/project.pbxproj
-          echo "Patched:"
-          grep -E 'objectVersion|compatibilityVersion' ScrollingScreenshot.xcodeproj/project.pbxproj
+
+      - name: Create temp keychain and self-signed certificate
+        run: |
+          # Create temporary keychain
+          KEYCHAIN_PATH=build.keychain
+          KEYCHAIN_PASSWORD=temp123
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security default-keychain -s "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -t 3600 -u "$KEYCHAIN_PATH"
+
+          # Generate self-signed code signing certificate
+          openssl req -new -newkey rsa:2048 -days 365 -nodes -x509 \
+            -subj "/CN=Temp Signing Cert" \
+            -out temp-cert.pem \
+            -keyout temp-key.pem
+
+          openssl pkcs12 -export \
+            -in temp-cert.pem \
+            -inkey temp-key.pem \
+            -out temp-cert.p12 \
+            -passout pass:temp123
+
+          # Import into keychain
+          security import temp-cert.p12 \
+            -k "$KEYCHAIN_PATH" \
+            -P temp123 \
+            -T /usr/bin/codesign \
+            -T /usr/bin/xcodebuild
+
+          # Allow codesign to use the key without prompt
+          security set-key-partition-list -S apple-tool:,apple: \
+            -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH" > /dev/null 2>&1
+
+          # Find the identity hash
+          IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | head -1 | awk '{print $2}')
+          echo "SIGNING_IDENTITY=$IDENTITY" >> $GITHUB_ENV
+          echo "Using identity: $IDENTITY"
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH"
 
       - name: Build app
         run: |
@@ -34,13 +70,21 @@ jobs:
             -sdk iphoneos \
             -configuration Release \
             CONFIGURATION_BUILD_DIR=build/Products \
+            CODE_SIGN_IDENTITY="$SIGNING_IDENTITY" \
+            CODE_SIGN_STYLE=Manual \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            DEVELOPMENT_TEAM="" \
             ONLY_ACTIVE_ARCH=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
             2>&1 | tee build.log
-          echo "=== Build products ==="
-          ls -la build/Products/
-          ls -la build/Products/ScrollingScreenshot.app/ 2>/dev/null || echo "App bundle not found"
+
+      - name: Verify app bundle
+        run: |
+          echo "=== App bundle ==="
+          ls -la build/Products/ScrollingScreenshot.app/
+          echo "=== Executable ==="
+          EXEC=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" build/Products/ScrollingScreenshot.app/Info.plist)
+          echo "Name: $EXEC"
+          file "build/Products/ScrollingScreenshot.app/$EXEC" && echo "EXECUTABLE OK" || echo "EXECUTABLE MISSING"
 
       - name: Upload build log
         if: always()
@@ -52,22 +96,8 @@ jobs:
 
       - name: Create IPA
         run: |
-          APP_PATH="build/Products/ScrollingScreenshot.app"
-          if [ ! -d "$APP_PATH" ]; then
-            echo "ERROR: .app not found at $APP_PATH"
-            find build -name "*.app" -type d 2>/dev/null || echo "(no .app found anywhere)"
-            exit 1
-          fi
-          echo "App: $APP_PATH"
-
-          # Check executable
-          EXEC=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$APP_PATH/Info.plist" 2>/dev/null)
-          echo "Expected executable: $EXEC"
-          ls -lh "$APP_PATH/$EXEC" && file "$APP_PATH/$EXEC" || echo "MISSING!"
-
-          # Create IPA using ditto
           mkdir -p Payload
-          cp -R "$APP_PATH" "Payload/ScrollingScreenshot.app"
+          cp -R build/Products/ScrollingScreenshot.app Payload/
           ditto -c -k --keepParent Payload ScrollingScreenshot.ipa
           rm -rf Payload
           echo "IPA: $(ls -lh ScrollingScreenshot.ipa)"
