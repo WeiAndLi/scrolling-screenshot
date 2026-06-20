@@ -1,0 +1,18 @@
+# Xcode
+*.xcworkspace
+*.xcuserdata
+*.xcbkptlist
+DerivedData/
+build/
+
+# CocoaPods / SPM
+Pods/
+.build/
+
+# macOS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/

@@ -1,0 +1,42 @@
+name: ScrollingScreenshot
+options:
+  bundleIdPrefix: com.scrollshot
+  deploymentTarget:
+    iOS: "15.0"
+  xcodeVersion: "15.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    CODE_SIGN_STYLE: Automatic
+
+targets:
+  ScrollingScreenshot:
+    type: application
+    platform: iOS
+    sources:
+      - path: ScrollingScreenshot
+        type: group
+    info:
+      path: ScrollingScreenshot/Info.plist
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.scrollshot.app
+        INFOPLIST_FILE: ScrollingScreenshot/Info.plist
+        DEVELOPMENT_TEAM: "$(DEVELOPMENT_TEAM)"
+        CODE_SIGN_STYLE: Automatic
+        ENABLE_USER_SCRIPT_SANDBOXING: "NO"
+    dependencies: []
+
+  ScrollingScreenshotTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: ScrollingScreenshotTests
+        type: group
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.scrollshot.app.tests
+        INFOPLIST_FILE: ""  # auto-generate
+    dependencies:
+      - target: ScrollingScreenshot
