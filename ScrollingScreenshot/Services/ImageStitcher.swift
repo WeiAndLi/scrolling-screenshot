@@ -65,7 +65,10 @@ final class ImageStitcher: ImageStitcherProtocol {
                     height: height
                 )
 
-                frame.draw(in: destRect)
+                // Crop and draw only the non-overlapping portion
+                if let croppedCG = frame.cgImage?.cropping(to: sourceRect) {
+                    UIImage(cgImage: croppedCG).draw(in: destRect)
+                }
             }
         }
 

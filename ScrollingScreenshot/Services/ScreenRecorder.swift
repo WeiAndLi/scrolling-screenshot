@@ -35,7 +35,8 @@ final class ScreenRecorder: ScreenRecorderProtocol {
         try? FileManager.default.removeItem(at: url)
 
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            recorder.startRecording(withOutput: url) { error in
+            // iOS 17.5+: startRecording no longer accepts URL; use handler-only variant
+            recorder.startRecording { error in
                 if let error = error {
                     continuation.resume(throwing: error)
                 } else {
@@ -54,7 +55,8 @@ final class ScreenRecorder: ScreenRecorderProtocol {
         }
 
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            recorder.stopRecording { error in
+            // Use withOutput variant to get video file at specific URL
+            recorder.stopRecording(withOutput: url) { error in
                 if let error = error {
                     continuation.resume(throwing: error)
                 } else {
