@@ -44,9 +44,9 @@ jobs:
             -destination "generic/platform=iOS" \
             -configuration Release \
             -derivedDataPath build/DerivedData \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=YES \
+            CODE_SIGNING_ALLOWED=YES \
             ONLY_ACTIVE_ARCH=NO \
             2>&1 | tee build.log
           echo "=== Build completed ==="
@@ -61,13 +61,27 @@ jobs:
         run: |
           APP_PATH=$(find build/DerivedData -name "*.app" -type d -path "*/Release-iphoneos/*" | head -1)
           if [ -z "$APP_PATH" ] || [ ! -d "$APP_PATH" ]; then
-            echo "ERROR: .app not found"
-            echo "Searching build directory:"
-            find build/DerivedData -name "*.app" -type d 2>/dev/null || echo "(no .app found)"
-            find build/DerivedData -type d 2>/dev/null | head -30
+            echo "ERROR: .app not found, searching everywhere..."
+            APP_PATH=$(find build/DerivedData -name "*.app" -type d | head -1)
+          fi
+          if [ -z "$APP_PATH" ] || [ ! -d "$APP_PATH" ]; then
+            echo "ERROR: no .app found anywhere"
+            find build/DerivedData -type d | head -50
             exit 1
           fi
           echo "Found app at: $APP_PATH"
+          echo "=== App contents ==="
+          ls -la "$APP_PATH/"
+          echo "=== Executable check ==="
+          EXEC_NAME=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$APP_PATH/Info.plist" 2>/dev/null || echo "unknown")
+          echo "CFBundleExecutable: $EXEC_NAME"
+          if [ -f "$APP_PATH/$EXEC_NAME" ]; then
+            echo "Executable exists: $(file "$APP_PATH/$EXEC_NAME")"
+          else
+            echo "WARNING: Executable file missing!"
+          fi
+          echo "=== Frameworks ==="
+          ls -la "$APP_PATH/Frameworks/" 2>/dev/null || echo "(none)"
           mkdir -p Payload
           cp -R "$APP_PATH" Payload/
           zip -r ScrollingScreenshot.ipa Payload/
