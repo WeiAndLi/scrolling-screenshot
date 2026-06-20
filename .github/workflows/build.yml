@@ -37,16 +37,6 @@ jobs:
             DEVELOPMENT_TEAM="" \
             2>&1 | tee build.log
 
-      - name: Find and check .app
-        run: |
-          echo "=== Searching for .app ==="
-          find build/DD -name "*.app" -type d 2>/dev/null
-          echo "=== Searching for executable ==="
-          find build/DD -type f -perm +111 -name "ScrollingScreenshot" 2>/dev/null || echo "no exec via perm"
-          find build/DD -type f -name "ScrollingScreenshot" 2>/dev/null || echo "no exec file found"
-          echo "=== Full file listing ==="
-          find build/DD -type f 2>/dev/null | head -50
-
       - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v4
@@ -57,25 +47,21 @@ jobs:
 
       - name: Create IPA
         run: |
-          APP=$(find build/DD -name "ScrollingScreenshot.app" -type d | head -1)
-          if [ -z "$APP" ]; then
-            APP=$(find build/DD -name "*.app" -type d | head -1)
-          fi
-          if [ -z "$APP" ]; then
-            echo "ERROR: No .app found"
-            exit 1
-          fi
-          echo "Using: $APP"
+          brew install ldid
 
-          # Check executable
-          NAME=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$APP/Info.plist" 2>/dev/null || echo "unknown")
-          echo "Executable name: $NAME"
-          if [ -f "$APP/$NAME" ]; then
-            echo "OK: $(file "$APP/$NAME")"
-          else
-            echo "MISSING! Listing app:"
-            ls -laR "$APP" | head -30
-          fi
+          # Find the .app
+          APP=$(find build/DD -name "ScrollingScreenshot.app" -type d | head -1)
+          echo "App: $APP"
+
+          # Pseudo-sign the binary (ldid adds a minimal signature structure)
+          # This will be replaced by Sideloadly/爱思助手 with user's real cert
+          echo "=== Pseudo-signing ==="
+          ldid -S "$APP/ScrollingScreenshot"
+          echo "Pseudo-signing complete"
+
+          # Verify executable
+          echo "=== Executable ==="
+          file "$APP/ScrollingScreenshot"
 
           # Create IPA
           mkdir -p Payload
