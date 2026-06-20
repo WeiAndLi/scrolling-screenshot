@@ -36,6 +36,7 @@ jobs:
             CONFIGURATION_BUILD_DIR=build/Products \
             ONLY_ACTIVE_ARCH=NO \
             CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
             2>&1 | tee build.log
           echo "=== Build products ==="
           ls -la build/Products/
