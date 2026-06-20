@@ -35,15 +35,15 @@ jobs:
           echo "=== Generated project schemes ==="
           xcodebuild -project ScrollingScreenshot.xcodeproj -list
 
-      - name: Build unsigned archive
+      - name: Build unsigned app
         run: |
           set -e
-          xcodebuild archive \
+          xcodebuild build \
             -project ScrollingScreenshot.xcodeproj \
             -scheme ScrollingScreenshot \
-            -archivePath build/ScrollingScreenshot.xcarchive \
             -destination "generic/platform=iOS" \
             -configuration Release \
+            -derivedDataPath build/DerivedData \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
@@ -57,15 +57,17 @@ jobs:
           echo "=== Build failed. Last 100 lines of log: ==="
           tail -100 build.log
 
-      - name: Create IPA from archive
+      - name: Create IPA
         run: |
-          APP_PATH="build/ScrollingScreenshot.xcarchive/Products/Applications/ScrollingScreenshot.app"
-          if [ ! -d "$APP_PATH" ]; then
-            echo "ERROR: .app not found at $APP_PATH"
-            echo "Archive contents:"
-            find build/ScrollingScreenshot.xcarchive -type d | head -20
+          APP_PATH=$(find build/DerivedData -name "*.app" -type d -path "*/Release-iphoneos/*" | head -1)
+          if [ -z "$APP_PATH" ] || [ ! -d "$APP_PATH" ]; then
+            echo "ERROR: .app not found"
+            echo "Searching build directory:"
+            find build/DerivedData -name "*.app" -type d 2>/dev/null || echo "(no .app found)"
+            find build/DerivedData -type d 2>/dev/null | head -30
             exit 1
           fi
+          echo "Found app at: $APP_PATH"
           mkdir -p Payload
           cp -R "$APP_PATH" Payload/
           zip -r ScrollingScreenshot.ipa Payload/
