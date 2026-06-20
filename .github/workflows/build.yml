@@ -3,7 +3,7 @@ name: Build iOS App
 on:
   push:
     branches: [main, master]
-  workflow_dispatch:  # Allow manual trigger
+  workflow_dispatch:
 
 jobs:
   build:
@@ -13,17 +13,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_15.4.app
-
       - name: Install XcodeGen
         run: brew install xcodegen
+
+      - name: Show available Xcode versions
+        run: ls -d /Applications/Xcode*.app
 
       - name: Generate Xcode project
         run: xcodegen generate --spec project.yml
 
+      - name: Show generated project info
+        run: |
+          echo "=== Generated project schemes ==="
+          xcodebuild -project ScrollingScreenshot.xcodeproj -list
+
       - name: Build unsigned archive
         run: |
+          set -e
           xcodebuild archive \
             -project ScrollingScreenshot.xcodeproj \
             -scheme ScrollingScreenshot \
@@ -33,15 +39,30 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
-            DEVELOPMENT_TEAM="" \
-            ONLY_ACTIVE_ARCH=NO
+            ONLY_ACTIVE_ARCH=NO \
+            2>&1 | tee build.log
+          echo "=== Build completed ==="
+
+      - name: Check build result
+        if: failure()
+        run: |
+          echo "=== Build failed. Last 100 lines of log: ==="
+          tail -100 build.log
 
       - name: Create IPA from archive
         run: |
+          APP_PATH="build/ScrollingScreenshot.xcarchive/Products/Applications/ScrollingScreenshot.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "ERROR: .app not found at $APP_PATH"
+            echo "Archive contents:"
+            find build/ScrollingScreenshot.xcarchive -type d | head -20
+            exit 1
+          fi
           mkdir -p Payload
-          cp -R build/ScrollingScreenshot.xcarchive/Products/Applications/ScrollingScreenshot.app Payload/
+          cp -R "$APP_PATH" Payload/
           zip -r ScrollingScreenshot.ipa Payload/
           rm -rf Payload
+          echo "IPA created: $(ls -lh ScrollingScreenshot.ipa)"
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
