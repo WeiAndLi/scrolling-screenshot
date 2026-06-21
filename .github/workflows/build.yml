@@ -67,28 +67,19 @@ jobs:
           </plist>
           ENT
 
-          # Ad-hoc sign using Apple codesign (real CMS signature structure)
-          echo "=== Ad-hoc signing ==="
-          codesign --force --sign - \
-            --entitlements entitlements.plist \
-            --timestamp=none \
-            --generate-entitlement-der \
-            "$APP" 2>&1 || true
+          # Verify .app structure first
+          echo "=== App structure ==="
+          ls -la "$APP/"
+          echo "Binary:"
+          file "$APP/ScrollingScreenshot" || echo "Binary NOT FOUND!"
+          ls "$APP/PlugIns/" 2>/dev/null && echo "Extension present" || echo "No PlugIns"
 
-          # If codesign fails (likely on iOS), use ldid as fallback
-          echo "=== Signature check ==="
-          if [ -d "$APP/_CodeSignature" ]; then
-            echo "codesign successful: _CodeSignature exists"
-            codesign -dvvv "$APP" 2>&1 || true
-          else
-            echo "codesign failed, falling back to ldid"
-            brew install ldid
-            ldid -Sentitlements.plist "$APP/ScrollingScreenshot"
-            echo "ldid exit code: $?"
-          fi
-
-          # Verify binary
-          file "$APP/ScrollingScreenshot"
+          # Use ldid with basic ad-hoc signing (no entitlements needed)
+          echo "=== ldid signing ==="
+          brew install ldid 2>&1 | tail -1
+          # Basic ad-hoc signature (works for all iOS versions)
+          ldid -S "$APP/ScrollingScreenshot"
+          echo "ldid exit: $?"
 
           # Create IPA
           mkdir -p Payload

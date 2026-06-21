@@ -1,5 +1,4 @@
 import ReplayKit
-import UIKit
 import AVFoundation
 
 /// 系统录屏扩展 —— 从控制中心触发录制，完成后自动处理
@@ -8,6 +7,8 @@ final class SampleHandler: RPBroadcastSampleHandler {
     private var assetWriter: AVAssetWriter?
     private var videoInput: AVAssetWriterInput?
     private var outputURL: URL?
+    private let targetWidth = 1170  // iPhone 分辨率
+    private let targetHeight = 2532
 
     override func broadcastStarted(withSetupInfo setupInfo: [String: NSObject]?) {
         // 在 App Group 共享目录创建视频文件
@@ -41,8 +42,8 @@ final class SampleHandler: RPBroadcastSampleHandler {
 
             let videoSettings: [String: Any] = [
                 AVVideoCodecKey: AVVideoCodecType.h264,
-                AVVideoWidthKey: UIScreen.main.bounds.width * UIScreen.main.scale,
-                AVVideoHeightKey: UIScreen.main.bounds.height * UIScreen.main.scale,
+                AVVideoWidthKey: targetWidth,
+                AVVideoHeightKey: targetHeight,
                 AVVideoCompressionPropertiesKey: [
                     AVVideoAverageBitRateKey: 8_000_000,
                     AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel
