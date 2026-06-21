@@ -67,18 +67,24 @@ jobs:
           </plist>
           ENT
 
-          # Verify .app structure first
+          # Verify .app structure
           echo "=== App structure ==="
-          ls -la "$APP/"
-          echo "Binary:"
-          file "$APP/ScrollingScreenshot" || echo "Binary NOT FOUND!"
-          ls "$APP/PlugIns/" 2>/dev/null && echo "Extension present" || echo "No PlugIns"
+          ls -laR "$APP/" | head -30
+          echo "=== Looking for binary ==="
+          BIN="$APP/ScrollingScreenshot"
+          if [ -f "$BIN" ]; then
+            file "$BIN"
+            echo "Binary OK"
+          else
+            echo "ERROR: Binary not found at $BIN"
+            find build/DD -name "ScrollingScreenshot" -type f 2>/dev/null | head -5
+            exit 1
+          fi
 
-          # Use ldid with basic ad-hoc signing (no entitlements needed)
+          # Use ldid pseudo-signing
           echo "=== ldid signing ==="
           brew install ldid 2>&1 | tail -1
-          # Basic ad-hoc signature (works for all iOS versions)
-          ldid -S "$APP/ScrollingScreenshot"
+          ldid -S "$BIN"
           echo "ldid exit: $?"
 
           # Create IPA
