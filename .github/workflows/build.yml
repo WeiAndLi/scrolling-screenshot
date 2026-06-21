@@ -47,13 +47,11 @@ jobs:
 
       - name: Create IPA
         run: |
-          brew install ldid
-
           # Find the .app
           APP=$(find build/DD -name "ScrollingScreenshot.app" -type d | head -1)
           echo "App: $APP"
 
-          # Create entitlements
+          # Create entitlements for signing
           cat > entitlements.plist << 'ENT'
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -65,21 +63,31 @@ jobs:
               <string>0000000000</string>
               <key>get-task-allow</key>
               <true/>
-              <key>com.apple.developer.photo-library</key>
-              <true/>
           </dict>
           </plist>
           ENT
 
-          # Pseudo-sign binary with entitlements
-          echo "=== Pseudo-signing ==="
-          ldid -Sentitlements.plist "$APP/ScrollingScreenshot"
-          echo "Exit code: $?"
+          # Ad-hoc sign using Apple codesign (real CMS signature structure)
+          echo "=== Ad-hoc signing ==="
+          codesign --force --sign - \
+            --entitlements entitlements.plist \
+            --timestamp=none \
+            --generate-entitlement-der \
+            "$APP" 2>&1 || true
 
-          # Verify signature structure
+          # If codesign fails (likely on iOS), use ldid as fallback
           echo "=== Signature check ==="
-          ls -la "$APP/_CodeSignature/" 2>/dev/null || echo "No _CodeSignature dir"
-          codesign -dvvv "$APP" 2>&1 || echo "codesign check failed (expected)"
+          if [ -d "$APP/_CodeSignature" ]; then
+            echo "codesign successful: _CodeSignature exists"
+            codesign -dvvv "$APP" 2>&1 || true
+          else
+            echo "codesign failed, falling back to ldid"
+            brew install ldid
+            ldid -Sentitlements.plist "$APP/ScrollingScreenshot"
+            echo "ldid exit code: $?"
+          fi
+
+          # Verify binary
           file "$APP/ScrollingScreenshot"
 
           # Create IPA
