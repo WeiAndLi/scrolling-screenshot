@@ -25,17 +25,25 @@ jobs:
       - name: Build app
         run: |
           set -e
-          xcodebuild build \
+          # Force clean build, use explicit output path
+          rm -rf build/Products
+          xcodebuild clean build \
             -project ScrollingScreenshot.xcodeproj \
             -scheme ScrollingScreenshot \
             -sdk iphoneos \
             -configuration Release \
-            -derivedDataPath build/DD \
+            CONFIGURATION_BUILD_DIR="$(pwd)/build/Products" \
             ONLY_ACTIVE_ARCH=NO \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             DEVELOPMENT_TEAM="" \
             2>&1 | tee build.log
+
+          # Show what was built
+          echo "=== Build products ==="
+          ls -la build/Products/
+          echo "=== Any binaries ==="
+          find build -name "ScrollingScreenshot" -type f 2>/dev/null | head -10
 
       - name: Upload build log
         if: always()
@@ -48,24 +56,8 @@ jobs:
       - name: Create IPA
         run: |
           # Find the .app
-          APP=$(find build/DD -name "ScrollingScreenshot.app" -type d | head -1)
+          APP=$(find build -name "ScrollingScreenshot.app" -type d | head -1)
           echo "App: $APP"
-
-          # Create entitlements for signing
-          cat > entitlements.plist << 'ENT'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>application-identifier</key>
-              <string>0000000000.com.scrollshot.app</string>
-              <key>com.apple.developer.team-identifier</key>
-              <string>0000000000</string>
-              <key>get-task-allow</key>
-              <true/>
-          </dict>
-          </plist>
-          ENT
 
           # Verify .app structure
           echo "=== App structure ==="
