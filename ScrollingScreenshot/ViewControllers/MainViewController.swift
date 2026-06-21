@@ -9,8 +9,6 @@ final class MainViewController: UIViewController {
     private let notificationManager: NotificationManagerProtocol
 
     // MARK: - UI
-    private let scrollView = UIScrollView()
-    private let contentStack = UIStackView()
     private let headerLabel = UILabel()
     private let recordButton = RecordButton()
     private let timerLabel = UILabel()

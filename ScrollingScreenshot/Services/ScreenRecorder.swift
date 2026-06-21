@@ -55,29 +55,17 @@ final class ScreenRecorder: ScreenRecorderProtocol {
             throw ScreenRecorderError.notRecording
         }
 
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            // iOS 15+: stopRecording saves video then calls handler with preview VC
-            // We dismiss the preview automatically — just want the video file
-            recorder.stopRecording { previewVC, error in
+        // Use stopRecording(withOutput:) to save the video directly to our URL
+        // This skips the preview UI and gives us the video file
+        return try await withCheckedThrowingContinuation { continuation in
+            recorder.stopRecording(withOutput: url) { error in
                 if let error = error {
                     continuation.resume(throwing: error)
-                    return
+                } else {
+                    continuation.resume(returning: url)
                 }
-                // Dismiss preview immediately
-                previewVC?.dismiss(animated: false)
-                continuation.resume()
             }
         }
-
-        // After stopRecording, the video should be at the output URL
-        // RPScreenRecorder stores it internally and we can access it
-        // For iOS 17+, video goes to the URL set in startRecording
-        guard FileManager.default.fileExists(atPath: url.path) else {
-            // Video might not be at our URL — try finding it via preview
-            throw ScreenRecorderError.outputFileMissing
-        }
-
-        return url
     }
 }
 
