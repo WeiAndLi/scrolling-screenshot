@@ -73,29 +73,24 @@ final class MainViewController: UIViewController {
         view.backgroundColor = .systemBackground
         title = "滚动长截图"
 
-        // Header
         headerLabel.text = "滚动长截图"
         headerLabel.font = .systemFont(ofSize: 28, weight: .bold)
         headerLabel.textAlignment = .center
         headerLabel.translatesAutoresizingMaskIntoConstraints = false
 
-        // Settings button
         settingsButton.setImage(UIImage(systemName: "gearshape.fill"), for: .normal)
         settingsButton.addTarget(self, action: #selector(settingsTapped), for: .touchUpInside)
         settingsButton.translatesAutoresizingMaskIntoConstraints = false
 
-        // Record button
         recordButton.translatesAutoresizingMaskIntoConstraints = false
         recordButton.addTarget(self, action: #selector(recordButtonTapped), for: .touchUpInside)
 
-        // Timer label
         timerLabel.font = .monospacedDigitSystemFont(ofSize: 28, weight: .medium)
         timerLabel.textAlignment = .center
         timerLabel.text = "00:00"
         timerLabel.isHidden = true
         timerLabel.translatesAutoresizingMaskIntoConstraints = false
 
-        // Status label
         statusLabel.font = .systemFont(ofSize: 15, weight: .medium)
         statusLabel.textAlignment = .center
         statusLabel.textColor = .secondaryLabel
@@ -103,20 +98,17 @@ final class MainViewController: UIViewController {
         statusLabel.numberOfLines = 0
         statusLabel.translatesAutoresizingMaskIntoConstraints = false
 
-        // Tip label
-        tipLabel.font = .systemFont(ofSize: 13)
+        tipLabel.font = .systemFont(ofSize: 12)
         tipLabel.textColor = .tertiaryLabel
         tipLabel.textAlignment = .center
         tipLabel.numberOfLines = 0
-        tipLabel.text = "💡 也可以从控制中心 → 长按录屏按钮 → 选择「ScrollShot 录屏」"
+        tipLabel.text = "💡 也可以用控制中心长按录屏按钮 → 选「ScrollShot 录屏」"
         tipLabel.translatesAutoresizingMaskIntoConstraints = false
 
-        // Progress
         progressView.isHidden = true
         progressView.translatesAutoresizingMaskIntoConstraints = false
 
-        // Empty state
-        emptyStateLabel.text = "暂无录制记录\n使用上方按钮或控制中心开始录制"
+        emptyStateLabel.text = "暂无录制记录\n点击红色按钮或在控制中心开始录制"
         emptyStateLabel.font = .systemFont(ofSize: 14)
         emptyStateLabel.textColor = .tertiaryLabel
         emptyStateLabel.textAlignment = .center
@@ -124,14 +116,12 @@ final class MainViewController: UIViewController {
         emptyStateLabel.isHidden = true
         emptyStateLabel.translatesAutoresizingMaskIntoConstraints = false
 
-        // Table view
         tableView.register(SessionCell.self, forCellReuseIdentifier: SessionCell.reuseIdentifier)
         tableView.dataSource = self
         tableView.delegate = self
         tableView.rowHeight = 80
         tableView.translatesAutoresizingMaskIntoConstraints = false
 
-        // Section header
         let historyLabel = UILabel()
         historyLabel.text = "历史记录"
         historyLabel.font = .systemFont(ofSize: 18, weight: .semibold)
@@ -211,20 +201,29 @@ final class MainViewController: UIViewController {
 
     // MARK: - Recording
     private func startRecording() {
+        // 立即显示"请求中"状态，不阻塞 UI
+        recordButton.isEnabled = false
+        statusLabel.text = "正在请求屏幕录制..."
+
+        // 异步发起录制，不等待回调
         Task {
             do {
                 try await screenRecorder.startRecording()
+                // 录制已获授权，开始录制
                 await MainActor.run {
                     recordButton.isRecording = true
+                    recordButton.isEnabled = true
                     timerLabel.isHidden = false
                     statusLabel.text = "正在录制... 切换到目标 App 滚动内容"
                     tipLabel.isHidden = true
                     startTimer()
                 }
             } catch {
+                // 用户取消或录制失败
                 await MainActor.run {
-                    let message = error.localizedDescription
-                    showAlert(title: "录制失败", message: message)
+                    recordButton.isRecording = false
+                    recordButton.isEnabled = true
+                    statusLabel.text = "点击红色按钮开始录制"
                 }
             }
         }
@@ -238,11 +237,11 @@ final class MainViewController: UIViewController {
         Task {
             do {
                 let videoURL = try await screenRecorder.stopRecording()
-                self.currentVideoURL = videoURL
                 await MainActor.run {
                     recordButton.isRecording = false
                     timerLabel.isHidden = true
                     tipLabel.isHidden = false
+                    recordButton.isEnabled = true
                     startProcessing(videoURL: videoURL)
                 }
             } catch {
@@ -251,6 +250,7 @@ final class MainViewController: UIViewController {
                     timerLabel.isHidden = true
                     tipLabel.isHidden = false
                     recordButton.isEnabled = true
+                    statusLabel.text = "点击红色按钮开始录制"
                     showAlert(title: "停止失败", message: error.localizedDescription)
                 }
             }
@@ -295,17 +295,14 @@ final class MainViewController: UIViewController {
 
                 try await saveToPhotos(image: stitchedImage)
 
-                // Clean up temp video
                 try? FileManager.default.removeItem(at: videoURL)
 
-                // Save result image to documents
                 let filename = "\(session.id.uuidString).png"
                 if let data = stitchedImage.pngData(),
                    let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
                     try data.write(to: docs.appendingPathComponent(filename))
                 }
 
-                // Update session
                 if let idx = sessions.firstIndex(where: { $0.id == session.id }) {
                     sessions[idx].status = .completed
                     sessions[idx].resultImageFilename = filename
@@ -313,27 +310,21 @@ final class MainViewController: UIViewController {
 
                 await MainActor.run {
                     progressView.progress = 1.0
-
                     if UserSettings.previewBeforeSave {
                         if let updatedSession = sessions.first(where: { $0.id == session.id }) {
-                            let previewVC = PreviewViewController(image: stitchedImage, session: updatedSession)
-                            navigationController?.pushViewController(previewVC, animated: true)
+                            navigationController?.pushViewController(
+                                PreviewViewController(image: stitchedImage, session: updatedSession),
+                                animated: true
+                            )
                         }
                         statusLabel.text = "预览"
                     } else {
                         statusLabel.text = "✅ 已保存到相册"
                     }
-
                     isProcessing = false
-                    recordButton.isEnabled = true
                     updateEmptyState()
                     tableView.reloadData()
-
-                    notificationManager.notifyProcessingComplete(
-                        sessionId: session.id.uuidString,
-                        success: true
-                    )
-
+                    notificationManager.notifyProcessingComplete(sessionId: session.id.uuidString, success: true)
                     DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in
                         self?.progressView.isHidden = true
                         if !UserSettings.previewBeforeSave {
@@ -347,24 +338,18 @@ final class MainViewController: UIViewController {
                         sessions[idx].status = .failed
                     }
                     isProcessing = false
-                    recordButton.isEnabled = true
                     progressView.isHidden = true
                     statusLabel.text = "点击红色按钮开始录制"
                     updateEmptyState()
                     tableView.reloadData()
-
-                    notificationManager.notifyProcessingComplete(
-                        sessionId: session.id.uuidString,
-                        success: false
-                    )
-
+                    notificationManager.notifyProcessingComplete(sessionId: session.id.uuidString, success: false)
                     showAlert(title: "处理失败", message: error.localizedDescription)
                 }
             }
         }
     }
 
-    // MARK: - Broadcast Extension pending recordings
+    // MARK: - Pending check
     private func startPendingCheck() {
         pendingCheckTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
             self?.checkPendingRecordings()
@@ -373,22 +358,13 @@ final class MainViewController: UIViewController {
 
     private func checkPendingRecordings() {
         guard !isProcessing else { return }
-        var pending: [String] = UserDefaults(suiteName: "group.com.scrollshot.app")?
-            .stringArray(forKey: "pendingVideos") ?? []
-
-        guard let videoPath = pending.first else { return }
-
+        guard let pending = UserDefaults(suiteName: "group.com.scrollshot.app")?
+            .stringArray(forKey: "pendingVideos"), !pending.isEmpty else { return }
+        var list = pending
+        let videoPath = list.removeFirst()
+        UserDefaults(suiteName: "group.com.scrollshot.app")?.set(list, forKey: "pendingVideos")
         let videoURL = URL(fileURLWithPath: videoPath)
-        guard FileManager.default.fileExists(atPath: videoPath) else {
-            pending.removeFirst()
-            UserDefaults(suiteName: "group.com.scrollshot.app")?.set(pending, forKey: "pendingVideos")
-            return
-        }
-
-        // 处理系统录屏产生的视频
-        pending.removeFirst()
-        UserDefaults(suiteName: "group.com.scrollshot.app")?.set(pending, forKey: "pendingVideos")
-
+        guard FileManager.default.fileExists(atPath: videoPath) else { return }
         DispatchQueue.main.async { [weak self] in
             self?.startProcessing(videoURL: videoURL)
         }
@@ -444,9 +420,7 @@ final class MainViewController: UIViewController {
     }
 
     private func requestPermissions() {
-        Task {
-            try? await notificationManager.requestAuthorization()
-        }
+        Task { try? await notificationManager.requestAuthorization() }
     }
 
     private func updateEmptyState() {
@@ -456,8 +430,8 @@ final class MainViewController: UIViewController {
     // MARK: - Persistence
     private func loadSessions() {
         guard let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
-        let sessionsURL = docs.appendingPathComponent("sessions.json")
-        if let data = try? Data(contentsOf: sessionsURL),
+        let url = docs.appendingPathComponent("sessions.json")
+        if let data = try? Data(contentsOf: url),
            let loaded = try? JSONDecoder().decode([RecordingSession].self, from: data) {
             sessions = loaded
         }
@@ -465,9 +439,9 @@ final class MainViewController: UIViewController {
 
     private func saveSessions() {
         guard let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
-        let sessionsURL = docs.appendingPathComponent("sessions.json")
+        let url = docs.appendingPathComponent("sessions.json")
         if let data = try? JSONEncoder().encode(sessions) {
-            try? data.write(to: sessionsURL)
+            try? data.write(to: url)
         }
     }
 }
@@ -504,8 +478,9 @@ extension MainViewController: UITableViewDelegate {
         guard let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
         let url = docs.appendingPathComponent(filename)
         guard let image = UIImage(contentsOfFile: url.path) else { return }
-
-        let previewVC = PreviewViewController(image: image, session: session)
-        navigationController?.pushViewController(previewVC, animated: true)
+        navigationController?.pushViewController(
+            PreviewViewController(image: image, session: session),
+            animated: true
+        )
     }
 }
