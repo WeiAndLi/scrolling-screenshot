@@ -53,14 +53,33 @@ jobs:
           APP=$(find build/DD -name "ScrollingScreenshot.app" -type d | head -1)
           echo "App: $APP"
 
-          # Pseudo-sign the binary (ldid adds a minimal signature structure)
-          # This will be replaced by Sideloadly/爱思助手 with user's real cert
-          echo "=== Pseudo-signing ==="
-          ldid -S "$APP/ScrollingScreenshot"
-          echo "Pseudo-signing complete"
+          # Create entitlements
+          cat > entitlements.plist << 'ENT'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>application-identifier</key>
+              <string>0000000000.com.scrollshot.app</string>
+              <key>com.apple.developer.team-identifier</key>
+              <string>0000000000</string>
+              <key>get-task-allow</key>
+              <true/>
+              <key>com.apple.developer.photo-library</key>
+              <true/>
+          </dict>
+          </plist>
+          ENT
 
-          # Verify executable
-          echo "=== Executable ==="
+          # Pseudo-sign binary with entitlements
+          echo "=== Pseudo-signing ==="
+          ldid -Sentitlements.plist "$APP/ScrollingScreenshot"
+          echo "Exit code: $?"
+
+          # Verify signature structure
+          echo "=== Signature check ==="
+          ls -la "$APP/_CodeSignature/" 2>/dev/null || echo "No _CodeSignature dir"
+          codesign -dvvv "$APP" 2>&1 || echo "codesign check failed (expected)"
           file "$APP/ScrollingScreenshot"
 
           # Create IPA
