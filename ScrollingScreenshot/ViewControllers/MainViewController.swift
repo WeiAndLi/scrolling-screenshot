@@ -249,8 +249,10 @@ final class MainViewController: UIViewController {
 
                     if UserSettings.previewBeforeSave {
                         // Show preview
-                        let previewVC = PreviewViewController(image: stitchedImage, session: sessions.first(where: { $0.id == session.id })!)
-                        navigationController?.pushViewController(previewVC, animated: true)
+                        if let updatedSession = sessions.first(where: { $0.id == session.id }) {
+                            let previewVC = PreviewViewController(image: stitchedImage, session: updatedSession)
+                            navigationController?.pushViewController(previewVC, animated: true)
+                        }
                         statusLabel.text = "Preview"
                     } else {
                         statusLabel.text = "Saved!"
