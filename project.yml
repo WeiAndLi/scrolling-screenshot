@@ -20,18 +20,6 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.scrollshot.app
         INFOPLIST_FILE: ScrollingScreenshot/Info.plist
-        CODE_SIGN_ENTITLEMENTS: ScrollingScreenshot/ScrollingScreenshot.entitlements
-    dependencies: []
-
-  BroadcastExtension:
-    type: app-extension
-    platform: iOS
-    sources:
-      - path: BroadcastExtension
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.scrollshot.app.broadcast
-        INFOPLIST_FILE: BroadcastExtension/Info.plist
     dependencies: []
 
   ScrollingScreenshotTests:
