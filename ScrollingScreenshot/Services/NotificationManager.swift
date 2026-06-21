@@ -18,12 +18,12 @@ final class NotificationManager: NotificationManagerProtocol {
     func notifyProcessingComplete(sessionId: String, success: Bool) {
         let content = UNMutableNotificationContent()
         if success {
-            content.title = "Long Screenshot Ready"
-            content.body = "Your scrolling screenshot has been saved to Photos."
+            content.title = "长截图已就绪"
+            content.body = "滚动长截图已保存到相册"
             content.sound = .default
         } else {
-            content.title = "Screenshot Failed"
-            content.body = "Could not process the recording. Tap to try again."
+            content.title = "截图失败"
+            content.body = "无法处理录制视频，请重试"
             content.sound = .default
         }
 

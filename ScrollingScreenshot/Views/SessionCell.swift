@@ -74,23 +74,23 @@ final class SessionCell: UITableViewCell {
 
         let mins = Int(session.duration) / 60
         let secs = Int(session.duration) % 60
-        durationLabel.text = "Duration: \(mins)m \(secs)s"
+        durationLabel.text = "时长：\(mins)分\(secs)秒"
 
         switch session.status {
         case .completed:
-            statusBadge.text = " Done "
+            statusBadge.text = " 已完成 "
             statusBadge.backgroundColor = .systemGreen.withAlphaComponent(0.15)
             statusBadge.textColor = .systemGreen
         case .processing:
-            statusBadge.text = " Processing "
+            statusBadge.text = " 处理中 "
             statusBadge.backgroundColor = .systemOrange.withAlphaComponent(0.15)
             statusBadge.textColor = .systemOrange
         case .failed:
-            statusBadge.text = " Failed "
+            statusBadge.text = " 失败 "
             statusBadge.backgroundColor = .systemRed.withAlphaComponent(0.15)
             statusBadge.textColor = .systemRed
         case .recording:
-            statusBadge.text = " Recording "
+            statusBadge.text = " 录制中 "
             statusBadge.backgroundColor = .systemBlue.withAlphaComponent(0.15)
             statusBadge.textColor = .systemBlue
         }

@@ -21,9 +21,9 @@
     <key>LSRequiresIPhoneOS</key>
     <true/>
     <key>NSPhotoLibraryAddUsageDescription</key>
-    <string>ScrollShot needs access to your photo library to save long screenshots.</string>
+    <string>滚动长截图需要访问相册来保存拼接后的长图</string>
     <key>NSPhotoLibraryUsageDescription</key>
-    <string>ScrollShot needs access to your photo library to save long screenshots.</string>
+    <string>滚动长截图需要访问相册来保存拼接后的长图</string>
     <key>UIRequiredDeviceCapabilities</key>
     <array>
         <string>arm64</string>

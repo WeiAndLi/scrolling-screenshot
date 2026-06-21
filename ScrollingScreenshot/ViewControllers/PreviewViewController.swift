@@ -25,9 +25,8 @@ final class PreviewViewController: UIViewController {
 
     private func setupUI() {
         view.backgroundColor = .systemBackground
-        title = "Preview"
+        title = "预览"
 
-        // Toolbar buttons
         let discardButton = UIBarButtonItem(
             image: UIImage(systemName: "trash"),
             style: .plain,
@@ -49,7 +48,6 @@ final class PreviewViewController: UIViewController {
         toolbarItems = [discardButton, .flexibleSpace(), shareButton, .flexibleSpace(), saveButton]
         navigationController?.isToolbarHidden = false
 
-        // Scroll view for zooming
         scrollView.minimumZoomScale = 1.0
         scrollView.maximumZoomScale = 5.0
         scrollView.delegate = self
@@ -83,14 +81,14 @@ final class PreviewViewController: UIViewController {
             } completionHandler: { success, error in
                 DispatchQueue.main.async {
                     if success {
-                        let alert = UIAlertController(title: "Saved", message: "Screenshot saved to Photos", preferredStyle: .alert)
-                        alert.addAction(UIAlertAction(title: "OK", style: .default) { [weak self] _ in
+                        let alert = UIAlertController(title: "已保存", message: "长截图已保存到系统相册", preferredStyle: .alert)
+                        alert.addAction(UIAlertAction(title: "好的", style: .default) { [weak self] _ in
                             self?.navigationController?.popViewController(animated: true)
                         })
                         self.present(alert, animated: true)
                     } else {
-                        let alert = UIAlertController(title: "Error", message: error?.localizedDescription ?? "Failed to save", preferredStyle: .alert)
-                        alert.addAction(UIAlertAction(title: "OK", style: .default))
+                        let alert = UIAlertController(title: "保存失败", message: error?.localizedDescription ?? "未知错误", preferredStyle: .alert)
+                        alert.addAction(UIAlertAction(title: "好的", style: .default))
                         self.present(alert, animated: true)
                     }
                 }

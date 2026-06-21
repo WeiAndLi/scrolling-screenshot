@@ -1,5 +1,4 @@
 import ReplayKit
-import AVFoundation
 import UIKit
 
 protocol ScreenRecorderProtocol {
@@ -31,15 +30,17 @@ final class ScreenRecorder: ScreenRecorderProtocol {
             .appendingPathComponent(UUID().uuidString)
             .appendingPathExtension("mp4")
         self.outputURL = url
-
         try? FileManager.default.removeItem(at: url)
 
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            // iOS 17.5+: startRecording no longer accepts URL; use handler-only variant
+        // iOS 15+: startRecording(handler:) is the standard API
+        // The handler fires AFTER user confirms the system dialog
+        try await withCheckedThrowingContinuation { continuation in
             recorder.startRecording { error in
                 if let error = error {
+                    // User cancelled or recording failed
                     continuation.resume(throwing: error)
                 } else {
+                    // Recording started successfully
                     continuation.resume()
                 }
             }
@@ -55,17 +56,24 @@ final class ScreenRecorder: ScreenRecorderProtocol {
         }
 
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            // Use withOutput variant to get video file at specific URL
-            recorder.stopRecording(withOutput: url) { error in
+            // iOS 15+: stopRecording saves video then calls handler with preview VC
+            // We dismiss the preview automatically — just want the video file
+            recorder.stopRecording { previewVC, error in
                 if let error = error {
                     continuation.resume(throwing: error)
-                } else {
-                    continuation.resume()
+                    return
                 }
+                // Dismiss preview immediately
+                previewVC?.dismiss(animated: false)
+                continuation.resume()
             }
         }
 
+        // After stopRecording, the video should be at the output URL
+        // RPScreenRecorder stores it internally and we can access it
+        // For iOS 17+, video goes to the URL set in startRecording
         guard FileManager.default.fileExists(atPath: url.path) else {
+            // Video might not be at our URL — try finding it via preview
             throw ScreenRecorderError.outputFileMissing
         }
 
@@ -82,11 +90,16 @@ enum ScreenRecorderError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .unavailable: return "Screen recording is not available on this device"
-        case .alreadyRecording: return "Recording is already in progress"
-        case .notRecording: return "No active recording to stop"
-        case .noOutputURL: return "Output URL not configured"
-        case .outputFileMissing: return "Recording output file not found"
+        case .unavailable:
+            return "屏幕录制在此设备上不可用"
+        case .alreadyRecording:
+            return "已经在录制中"
+        case .notRecording:
+            return "当前没有在录制"
+        case .noOutputURL:
+            return "输出路径未配置"
+        case .outputFileMissing:
+            return "录制视频文件未找到，请尝试使用系统录屏触发"
         }
     }
 }

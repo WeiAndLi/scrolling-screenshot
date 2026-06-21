@@ -14,7 +14,7 @@ final class SettingsViewController: UIViewController {
 
     private func setupUI() {
         view.backgroundColor = .systemGroupedBackground
-        title = "Settings"
+        title = "设置"
         navigationItem.rightBarButtonItem = UIBarButtonItem(
             barButtonSystemItem: .done,
             target: self,
@@ -27,22 +27,22 @@ final class SettingsViewController: UIViewController {
         stack.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(stack)
 
-        // Preview toggle section
+        // Preview toggle
         let previewSection = makeSection(
-            title: "Preview Before Save",
-            subtitle: "Show result before saving to Photos"
+            title: "保存前预览",
+            subtitle: "开启后，拼接完成后会先预览，确认再保存；关闭则直接保存到相册"
         )
         previewSwitch.addTarget(self, action: #selector(previewToggled), for: .valueChanged)
         previewSection.addArrangedSubview(previewSwitch)
         stack.addArrangedSubview(previewSection)
 
-        // Frame interval section
+        // Frame interval
         let intervalSection = makeSection(
-            title: "Frame Interval",
-            subtitle: "Time between sampled frames: \(String(format: "%.1f", UserSettings.frameInterval))s"
+            title: "采样间隔",
+            subtitle: "每隔多长时间取一帧。间隔越小越精确但处理更慢"
         )
         intervalLabel.font = .monospacedDigitSystemFont(ofSize: 16, weight: .medium)
-        intervalLabel.text = String(format: "%.1fs", UserSettings.frameInterval)
+        intervalLabel.text = String(format: "%.1f 秒", UserSettings.frameInterval)
         intervalSection.addArrangedSubview(intervalLabel)
 
         intervalSlider.minimumValue = 0.2
@@ -86,7 +86,7 @@ final class SettingsViewController: UIViewController {
     private func loadCurrentSettings() {
         previewSwitch.isOn = UserSettings.previewBeforeSave
         intervalSlider.value = Float(UserSettings.frameInterval)
-        intervalLabel.text = String(format: "%.1fs", UserSettings.frameInterval)
+        intervalLabel.text = String(format: "%.1f 秒", UserSettings.frameInterval)
     }
 
     @objc private func previewToggled() {
@@ -97,7 +97,7 @@ final class SettingsViewController: UIViewController {
         let value = round(intervalSlider.value * 10) / 10
         intervalSlider.value = value
         UserSettings.frameInterval = TimeInterval(value)
-        intervalLabel.text = String(format: "%.1fs", value)
+        intervalLabel.text = String(format: "%.1f 秒", value)
     }
 
     @objc private func doneTapped() {
