@@ -1,5 +1,4 @@
 import ReplayKit
-import UIKit
 
 protocol ScreenRecorderProtocol {
     func startRecording() async throws
@@ -32,15 +31,11 @@ final class ScreenRecorder: ScreenRecorderProtocol {
         self.outputURL = url
         try? FileManager.default.removeItem(at: url)
 
-        // iOS 15+: startRecording(handler:) is the standard API
-        // The handler fires AFTER user confirms the system dialog
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             recorder.startRecording { error in
                 if let error = error {
-                    // User cancelled or recording failed
                     continuation.resume(throwing: error)
                 } else {
-                    // Recording started successfully
                     continuation.resume()
                 }
             }
@@ -55,17 +50,21 @@ final class ScreenRecorder: ScreenRecorderProtocol {
             throw ScreenRecorderError.notRecording
         }
 
-        // Use stopRecording(withOutput:) to save the video directly to our URL
-        // This skips the preview UI and gives us the video file
-        return try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             recorder.stopRecording(withOutput: url) { error in
                 if let error = error {
                     continuation.resume(throwing: error)
                 } else {
-                    continuation.resume(returning: url)
+                    continuation.resume()
                 }
             }
         }
+
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            throw ScreenRecorderError.outputFileMissing
+        }
+
+        return url
     }
 }
 
@@ -87,7 +86,7 @@ enum ScreenRecorderError: LocalizedError {
         case .noOutputURL:
             return "输出路径未配置"
         case .outputFileMissing:
-            return "录制视频文件未找到，请尝试使用系统录屏触发"
+            return "录制视频文件未找到"
         }
     }
 }
